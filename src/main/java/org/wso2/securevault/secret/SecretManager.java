@@ -139,32 +139,32 @@ public class SecretManager {
 
         IdentityKeyStoreWrapper identityKeyStoreWrapper = new IdentityKeyStoreWrapper();
         TrustKeyStoreWrapper trustKeyStoreWrapper = new TrustKeyStoreWrapper();
-        if (legacyProvidersExist) {
-            //Create a KeyStore Information  for private key entry KeyStore.
-            IdentityKeyStoreInformation identityInformation =
-                    KeyStoreInformationFactory.createIdentityKeyStoreInformation(properties);
 
-            // Create a KeyStore Information for trusted certificate KeyStore.
-            TrustKeyStoreInformation trustInformation =
-                    KeyStoreInformationFactory.createTrustKeyStoreInformation(properties);
+        //Create a KeyStore Information  for private key entry KeyStore.
+        IdentityKeyStoreInformation identityInformation =
+                KeyStoreInformationFactory.createIdentityKeyStoreInformation(properties);
 
-            String identityKeyPass = createIdentityKeyPassword(identityInformation);
-            String identityStorePass = createIdentityStorePassword(identityInformation);
-            String trustStorePass = createTrustStorePassword(trustInformation);
+        // Create a KeyStore Information for trusted certificate KeyStore.
+        TrustKeyStoreInformation trustInformation =
+                KeyStoreInformationFactory.createTrustKeyStoreInformation(properties);
 
-            if (!validatePasswords(identityStorePass, identityKeyPass, trustStorePass)) {
-                if (log.isDebugEnabled()) {
-                    log.info(
-                            "Either Identity or Trust keystore password is mandatory in order to initialized secret manager.");
-                }
-                return;
+        String identityKeyPass = createIdentityKeyPassword(identityInformation);
+        String identityStorePass = createIdentityStorePassword(identityInformation);
+        String trustStorePass = createTrustStorePassword(trustInformation);
+
+        if (!validatePasswords(identityStorePass, identityKeyPass, trustStorePass)) {
+            if (log.isDebugEnabled()) {
+                log.info(
+                        "Either Identity or Trust keystore password is mandatory in order to initialized secret manager.");
             }
-            identityKeyStoreWrapper.init(identityInformation, identityKeyPass);
-
-            if(trustInformation != null){
-                trustKeyStoreWrapper.init(trustInformation);
-            }
+            return;
         }
+        identityKeyStoreWrapper.init(identityInformation, identityKeyPass);
+
+        if(trustInformation != null){
+            trustKeyStoreWrapper.init(trustInformation);
+        }
+
         SecretRepository currentParent = null;
         for (Map.Entry repositoryProvider : providers.entrySet()) {
             String providerType = (String) repositoryProvider.getKey();    //file,vault,hsm etc.
@@ -197,7 +197,8 @@ public class SecretManager {
                     if (PROP_SECRET_PROVIDERS.equals(propertyName)) {
                         Properties filteredConfigs = filterConfigurations(providerType, configurationProperties);
                         Map<String, SecretRepository> providerBasedSecretRepositories =
-                                ((SecretRepositoryProvider) instance).initProvider(filteredConfigs, providerType);
+                                ((SecretRepositoryProvider) instance).initProvider(filteredConfigs, providerType,
+                                        identityKeyStoreWrapper, trustKeyStoreWrapper);
                         secretRepositories.putAll(providerBasedSecretRepositories);
                     } else if (PROP_SECRET_REPOSITORIES.equals(propertyName)){
                         // This will be executed if and only if there`s a legacy secret provider configured.

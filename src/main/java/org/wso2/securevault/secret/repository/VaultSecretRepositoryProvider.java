@@ -56,6 +56,9 @@ public class VaultSecretRepositoryProvider implements SecretRepositoryProvider {
     // Dot String.
     private final static String DOT = ".";
 
+    // Property String for provider.
+    public static final String PROVIDER = "provider";
+
     // Contains all initialized secret repositories under provider type vault.
     private final Map<String, SecretRepository> vaultRepositoryMap = new HashMap<>();
 
@@ -77,7 +80,9 @@ public class VaultSecretRepositoryProvider implements SecretRepositoryProvider {
      * @throws SecureVaultException when creating the SecretRepository instances.
      */
     @Override
-    public Map<String, SecretRepository> initProvider(Properties configurationProperties, String providerType)
+    public Map<String, SecretRepository> initProvider(Properties configurationProperties, String providerType,
+                                                      IdentityKeyStoreWrapper identityKeyStoreWrapper,
+                                                      TrustKeyStoreWrapper trustKeyStoreWrapper)
             throws SecureVaultException {
 
         // Get the list of repositories from the secret configurations.
@@ -97,30 +102,39 @@ public class VaultSecretRepositoryProvider implements SecretRepositoryProvider {
 
             for (String repo : repositories) {
                 // Get the property contains the fully qualified class name of the repository.
-                StringBuilder repositoryClassNamePropKey = new StringBuilder()
+                StringBuilder repositoryProviderClassNamePropKey = new StringBuilder()
                         .append(repositoriesStringPropKey.toString())
                         .append(DOT)
-                        .append(repo);
+                        .append(repo)
+                        .append(DOT)
+                        .append(PROVIDER);
 
-                String repositoryClassName = MiscellaneousUtil.getProperty(configurationProperties,
-                        repositoryClassNamePropKey.toString(), null);
+                String repositoryProviderClassName = MiscellaneousUtil.getProperty(configurationProperties,
+                        repositoryProviderClassNamePropKey.toString(), null);
 
-                if (MiscellaneousUtil.isValidPropertyValue(repositoryClassName)) {
+                if (MiscellaneousUtil.isValidPropertyValue(repositoryProviderClassName)) {
                     try {
                         // Create a new instance of the class.
-                        Class repositoryClass = getClass().getClassLoader().loadClass(repositoryClassName.trim());
-                        Object repositoryImpl = repositoryClass.newInstance();
-
-                        if (repositoryImpl instanceof SecretRepository) {
+                        Class repositoryProviderClass = getClass().getClassLoader().
+                                loadClass(repositoryProviderClassName.trim());
+                        Object repositoryProviderImpl = repositoryProviderClass.newInstance();
+                        if (repositoryProviderImpl instanceof SecretRepositoryProvider) {
                             Properties repositoryProperties = filterConfigurations(configurationProperties, repo);
-                            ((SecretRepository) repositoryImpl).init(repositoryProperties, providerType);
-                            vaultRepositoryMap.put(repo, (SecretRepository) repositoryImpl);
+                            SecretRepository repositoryImpl = ((SecretRepositoryProvider) repositoryProviderImpl).
+                                    getSecretRepository(identityKeyStoreWrapper, trustKeyStoreWrapper);
+                            repositoryImpl.init(repositoryProperties, providerType);
+                            vaultRepositoryMap.put(repo, repositoryImpl);
                         }
+
                     } catch (Throwable e) {
                         // RunTime Exceptions need to be handled.
                         throw new SecureVaultException(
-                                "Error while initializing the secret repository " + repositoryClassName, e);
+                                "Error while initializing the secret repository " + repositoryProviderClassName, e);
                     }
+                } else {
+                    throw new SecureVaultException(
+                            "Error while initializing the secret repository provider");
+
                 }
             }
         }

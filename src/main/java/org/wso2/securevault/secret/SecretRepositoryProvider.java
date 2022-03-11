@@ -46,7 +46,9 @@ public interface SecretRepositoryProvider {
      * @param providerType            Provider type.
      * @return A collection of initialized SecretRepositories.
      */
-    default Map<String, SecretRepository> initProvider(Properties configurationProperties, String providerType) {
+    default Map<String, SecretRepository> initProvider(Properties configurationProperties, String providerType,
+                                                       IdentityKeyStoreWrapper identityKeyStoreWrapper,
+                                                       TrustKeyStoreWrapper trustKeyStoreWrapper) {
 
         return Collections.emptyMap();
     }
